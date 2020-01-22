@@ -1,0 +1,12 @@
+{
+  "name": "automating-aws-with-javascript",
+  "version": "1.0.0",
+  "description": "Simple scripting examples for automating AWS with JavaScript",
+  "main": "index.js",
+  "repository": "git@github.com:hossamelmansy/automating-aws-with-javascript.git",
+  "author": "Hossam ELMansy <hossamelmansy.developer@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.608.0"
+  }
+}
