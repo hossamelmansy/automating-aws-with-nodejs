@@ -19,19 +19,20 @@ const program = require("commander");
 
 const BucketManager = require("./bucketManager");
 
-program.version("0.0.1");
-program.description("Webotron deploys websites to AWS.");
+program
+  .version("0.0.1")
+  .description("Webotron deploys websites to AWS.")
+  .option("--profile <profileName>", "Use a given AWS profile.", "default")
+  .option("--region <regionName>", "Specify AWS region.", "us-east-1")
+  .parseOptions(process.argv);
 
 // setting AWS credentials, load it from `~/.aws/credentials` file
-const credentials = new AWS.SharedIniFileCredentials({
-  profile: "javascriptAutomation",
+AWS.config.credentials = new AWS.SharedIniFileCredentials({
+  profile: program.profile,
 });
-AWS.config.credentials = credentials;
-AWS.config.update({ region: "us-east-1" });
+AWS.config.update({ region: program.region }); // update aws-sdk region
 
-// TODO: command --profile to select profile
-// TODO: command --region to override profile region
-const bucketManager = new BucketManager();
+const bucketManager = new BucketManager(); // BucketManager
 
 // list-buckets
 program
@@ -40,7 +41,7 @@ program
   .action(async function() {
     const buckets = await bucketManager.getAllBuckets(); // get all buckets
 
-    buckets.forEach(bucket => console.log(bucket));
+    buckets.forEach(bucket => console.log(bucket)); // print buckets
   });
 
 // list-bucket-objects
@@ -48,10 +49,10 @@ program
   .command("list-bucket-objects <bucket>")
   .description("List objects in an S3 bucket.")
   .action(async function(bucket) {
-    bucketManager.setBucket(bucket);
+    bucketManager.setBucket(bucket); // set bucket
     const objects = await bucketManager.getObjects(); // get all bucket objects
 
-    objects.forEach(object => console.log(object.Key));
+    objects.forEach(object => console.log(object.Key)); // print objects
   });
 
 // setup-bucket
@@ -59,7 +60,7 @@ program
   .command("setup-bucket <bucket>")
   .description("Create and configure S3 bucket.")
   .action(async function(bucket) {
-    bucketManager.setBucket(bucket);
+    bucketManager.setBucket(bucket); // set bucket
 
     await bucketManager.init(); // create new S3 bucket
     await bucketManager.disableBlockPublicAccess(); // disable S3 bucket Block Public Access
@@ -89,7 +90,7 @@ program
   .command("sync <pathName> <bucket>")
   .description("Sync contents of PATHNAME to BUCKET.")
   .action(async function(pathName, bucket) {
-    bucketManager.setBucket(bucket);
+    bucketManager.setBucket(bucket); // set bucket
 
     await bucketManager.sync(pathName); // sync all files and folders to the bucket
   });
