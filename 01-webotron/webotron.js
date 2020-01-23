@@ -2,6 +2,8 @@ const AWS = require("aws-sdk/global");
 const S3 = require("aws-sdk/clients/s3");
 const program = require("commander");
 const fs = require("fs");
+const path = require("path");
+const mime = require("mime");
 
 program.version("0.0.1");
 program.description("Webotron deploys websites to AWS");
@@ -35,23 +37,8 @@ program
   .description("Create and configure S3 bucket")
   .action(async function(bucketName) {
     // create S3 bucket
-    await s3
-      .createBucket({
-        Bucket: bucketName,
-        CreateBucketConfiguration: { LocationConstraint: AWS.config.region },
-      })
-      .promise();
-
-    // upload website files
-    const fileContent = fs.readFileSync("index.html");
-    await s3
-      .upload({
-        Bucket: bucketName,
-        Key: "index.html",
-        Body: fileContent,
-        ContentType: "text/html",
-      })
-      .promise();
+    // TODO: specify region when creating an S3 bucket
+    await s3.createBucket({ Bucket: bucketName }).promise();
 
     // disable S3 bucket Block Public Access
     await s3.deletePublicAccessBlock({ Bucket: bucketName }).promise();
@@ -91,6 +78,16 @@ program
     );
   });
 
+// sync
+program
+  .command("sync <pathName> <bucketName>")
+  .description("Sync contents of PATHNAME to BUCKET")
+  .action(async function(pathName, bucketName) {
+    const files = getDirFilesForS3(pathName);
+
+    files.forEach(async file => await uploadFileToS3(bucketName, file));
+  });
+
 // parse arguments
 (async function() {
   await program.parseAsync(process.argv);
@@ -98,6 +95,43 @@ program
 
 // ##########################################################################################
 // ##########################################################################################
+
+async function uploadFileToS3(bucketName, file) {
+  const fileContent = fs.readFileSync(file.path);
+
+  await s3
+    .upload({
+      Bucket: bucketName,
+      Key: file.key,
+      ContentType: mime.getType(file.key),
+      Body: fileContent,
+    })
+    .promise();
+}
+
+function getDirFilesForS3(pathName) {
+  pathName = !path.isAbsolute(pathName) ? path.resolve(pathName) : pathName;
+
+  let files = readDir(pathName).map(filePath => ({
+    path: filePath,
+    key: path.relative(pathName, filePath),
+  }));
+
+  return files;
+
+  // ######################################################
+  function readDir(dir) {
+    return fs
+      .readdirSync(dir)
+      .reduce(
+        (files, file) =>
+          fs.statSync(path.join(dir, file)).isDirectory()
+            ? files.concat(readDir(path.join(dir, file)))
+            : files.concat(path.join(dir, file)),
+        [],
+      );
+  }
+}
 
 async function listS3Buckets() {
   const result = await s3.listBuckets().promise();
