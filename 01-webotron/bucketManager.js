@@ -11,6 +11,8 @@ const fs = require("fs");
 const path = require("path");
 const mime = require("mime");
 
+const { getRegionEndpoint } = require("./utils");
+
 class BucketManager {
   /**
    * @constructor
@@ -145,6 +147,32 @@ class BucketManager {
           [],
         );
     }
+  }
+
+  /**
+   * Get the bucket's region.
+   * @function getRegion
+   * @returns {string} - The bucket's region.
+   */
+  async getRegion() {
+    const { LocationConstraint } = await this.s3
+      .getBucketLocation({ Bucket: this.bucket })
+      .promise();
+    // returns "" if bucket created in "us-east-1"
+
+    return LocationConstraint || "us-east-1"; // return "us-east-1" when ""
+  }
+
+  /**
+   * Get the bucket's website's endpoint.
+   * @function getWebsiteURL
+   * @returns {string} - The URL of the website.
+   */
+  async getWebsiteURL() {
+    const region = await this.getRegion(); // get bucket region
+    const { endpoint } = getRegionEndpoint(region); // get S3 website region endpoint
+
+    return `http://${this.bucket}.${endpoint}`;
   }
 }
 

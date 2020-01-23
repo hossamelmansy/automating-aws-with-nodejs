@@ -80,9 +80,8 @@ program
     await bucketManager.configureWebsite("index.html", "error.html"); // enable and configure S3 bucket for website hosting
 
     // print website URL
-    console.log(
-      `Website URL: http://${bucket}.s3-website-${AWS.config.region}.amazonaws.com`,
-    );
+    const websiteURL = await bucketManager.getWebsiteURL();
+    console.log(websiteURL);
   });
 
 // sync
@@ -93,6 +92,9 @@ program
     bucketManager.setBucket(bucket); // set bucket
 
     await bucketManager.sync(pathName); // sync all files and folders to the bucket
+    const websiteURL = await bucketManager.getWebsiteURL();
+
+    console.log(websiteURL);
   });
 
 // parse arguments
