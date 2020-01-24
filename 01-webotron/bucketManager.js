@@ -144,6 +144,7 @@ class BucketManager {
       key: path.relative(pathName, filePath),
     }));
 
+    // syncing and uploading changed files only
     files.forEach(async file => {
       const fileETag = this.generateFileETag(file.path); // calculate file ETag
 
@@ -155,6 +156,21 @@ class BucketManager {
         await this.uploadFile(file.path, file.key);
       }
     });
+
+    // TODO: remove files from bucket if it removed locally
+    const filesInBucket = Object.keys(this.manifest); // files already in the bucket
+    // files to be synced
+    const filesToBeSynced = Object.keys(
+      files.reduce((obj, file) => ({ ...obj, [file.key]: file.path }), {}),
+    );
+    // files needs to be removed from the bucket
+    const removedFiles = filesInBucket
+      .filter(file => !filesToBeSynced.includes(file))
+      .concat(filesToBeSynced.filter(file => !filesInBucket.includes(file)));
+
+    // delete objects
+    if (removedFiles.length) await this.deleteObjects(removedFiles);
+
     // ################################################
     function readDir(dir) {
       return fs
@@ -251,6 +267,23 @@ class BucketManager {
       .createHash("md5")
       .update(data)
       .digest("hex");
+  }
+
+  /**
+   * Delete objects from the bucket.
+   * @function deleteObjects
+   * @param {Array<string>}
+   */
+  async deleteObjects(keys = []) {
+    // convert array of keys to objects of Key
+    const objects = keys.map(key => ({ Key: key }));
+
+    await this.s3
+      .deleteObjects({
+        Bucket: this.bucket,
+        Delete: { Objects: objects },
+      })
+      .promise();
   }
 }
 
