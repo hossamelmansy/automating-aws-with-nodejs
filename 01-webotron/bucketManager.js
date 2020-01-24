@@ -10,6 +10,7 @@ const S3 = require("aws-sdk/clients/s3");
 const fs = require("fs");
 const path = require("path");
 const mime = require("mime");
+const crypto = require("crypto");
 
 const { getRegionEndpoint } = require("./utils");
 
@@ -20,6 +21,8 @@ class BucketManager {
    */
   constructor(bucket = "") {
     this.s3 = new S3({ apiVersion: "latest" });
+    this.manifest = {}; // object containing Key and ETag of objects in the bucket
+    this.partSize = 5242880; // default partSize: 5MB
     this.bucket = bucket;
   }
 
@@ -112,12 +115,15 @@ class BucketManager {
     const contentType = mime.getType(key) || "text/plain";
 
     await this.s3
-      .upload({
-        Bucket: this.bucket,
-        Key: key,
-        ContentType: contentType,
-        Body: fileContent,
-      })
+      .upload(
+        {
+          Bucket: this.bucket,
+          Key: key,
+          ContentType: contentType,
+          Body: fileContent,
+        },
+        { partSize: this.partSize },
+      )
       .promise();
   }
 
@@ -129,12 +135,26 @@ class BucketManager {
   async sync(pathName) {
     pathName = !path.isAbsolute(pathName) ? path.resolve(pathName) : pathName;
 
+    // Loads S3 bucket  objects' manifest (array of Key and ETag)
+    await this.loadManifest();
+
+    // read folder recuersively, get file path and key
     let files = readDir(pathName).map(filePath => ({
       path: filePath,
       key: path.relative(pathName, filePath),
     }));
 
-    files.forEach(async file => await this.uploadFile(file.path, file.key));
+    files.forEach(async file => {
+      const fileETag = this.generateFileETag(file.path); // calculate file ETag
+
+      // if ETags matches, don't upload
+      if (this.manifest[file.key] == fileETag) {
+        console.log(`Skipping ${file.key}, ETags matched.`);
+      } else {
+        console.log(`Uploading ${file.key}, ETags not matched.`);
+        await this.uploadFile(file.path, file.key);
+      }
+    });
     // ################################################
     function readDir(dir) {
       return fs
@@ -173,6 +193,64 @@ class BucketManager {
     const { endpoint } = getRegionEndpoint(region); // get S3 website region endpoint
 
     return `http://${this.bucket}.${endpoint}`;
+  }
+
+  /**
+   * Loads an array of bucket's objects Key and ETag in this.manifest.
+   * @function loadManifest
+   */
+  async loadManifest() {
+    const objects = await this.getObjects();
+
+    objects.forEach(({ Key, ETag }) => (this.manifest[Key] = ETag));
+  }
+
+  /**
+   * Generates ETag of a given file.
+   * @function generateFileETag
+   * @param {string} pathName - The path of the file.
+   * @returns {string} - ETag (MD5 hash)
+   */
+  generateFileETag(pathName) {
+    const file = fs.openSync(pathName, "r"); // open the file
+    let hashes = [];
+
+    while (true) {
+      let buffer = Buffer.alloc(this.partSize, null, "hex");
+      let bytesRead = fs.readSync(file, buffer, 0, this.partSize, null);
+      let hash = this.getMD5Hash(buffer.slice(0, bytesRead));
+
+      hashes.push(hash);
+
+      if (this.partSize > bytesRead) break; // break the loop when at the end of the file
+    }
+
+    fs.closeSync(file); // close the file
+
+    // return empty if no file
+    if (hashes.length == 0) return;
+    // if one part, return the hash
+    else if (hashes.length == 1) return `"${hashes[0]}"`;
+    // if multiple parts, combine the hash of each part, then hash them, then add number of parts
+    else {
+      const combinedHashes = Buffer.from(hashes.join(""), "hex");
+      const hash = this.getMD5Hash(combinedHashes);
+
+      return `"${hash}-${hashes.length}"`;
+    }
+  }
+
+  /**
+   * Get the MD5 hash of the supplied data.
+   * @function getMD5Hash
+   * @param {string} data - The data to be hashed.
+   * @returns {string} - MD5 hash
+   */
+  getMD5Hash(data) {
+    return crypto
+      .createHash("md5")
+      .update(data)
+      .digest("hex");
   }
 }
 

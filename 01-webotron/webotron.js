@@ -94,7 +94,7 @@ program
     await bucketManager.sync(pathName); // sync all files and folders to the bucket
     const websiteURL = await bucketManager.getWebsiteURL();
 
-    console.log(websiteURL);
+    console.log(`\nWebsite URL: ${websiteURL}`);
   });
 
 // parse arguments
