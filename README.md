@@ -1,6 +1,6 @@
-# automating-aws-with-javascript
+# automating-aws-with-nodejs
 
-Examples for automating AWS with JavaScript
+Examples for automating AWS with NodeJS
 
 ## 01-webotron
 
