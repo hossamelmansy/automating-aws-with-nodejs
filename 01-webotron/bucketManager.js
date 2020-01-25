@@ -144,6 +144,23 @@ class BucketManager {
       key: path.relative(pathName, filePath),
     }));
 
+    // remove files from bucket if it removed locally
+    const filesInBucket = Object.keys(this.manifest); // files already in the bucket
+    // files to be synced
+    const filesToBeSynced = Object.keys(
+      files.reduce((obj, file) => ({ ...obj, [file.key]: file.path }), {}),
+    );
+
+    // if local files < files in the bucket
+    if (filesToBeSynced.length < filesInBucket) {
+      // files needs to be removed from the bucket
+      const removedFiles = filesInBucket
+        .filter(file => !filesToBeSynced.includes(file))
+        .concat(filesToBeSynced.filter(file => !filesInBucket.includes(file)));
+      // delete objects
+      await this.deleteObjects(removedFiles);
+    }
+
     // syncing and uploading changed files only
     files.forEach(async file => {
       const fileETag = this.generateFileETag(file.path); // calculate file ETag
@@ -156,20 +173,6 @@ class BucketManager {
         await this.uploadFile(file.path, file.key);
       }
     });
-
-    // TODO: remove files from bucket if it removed locally
-    const filesInBucket = Object.keys(this.manifest); // files already in the bucket
-    // files to be synced
-    const filesToBeSynced = Object.keys(
-      files.reduce((obj, file) => ({ ...obj, [file.key]: file.path }), {}),
-    );
-    // files needs to be removed from the bucket
-    const removedFiles = filesInBucket
-      .filter(file => !filesToBeSynced.includes(file))
-      .concat(filesToBeSynced.filter(file => !filesInBucket.includes(file)));
-
-    // delete objects
-    if (removedFiles.length) await this.deleteObjects(removedFiles);
 
     // ################################################
     function readDir(dir) {
