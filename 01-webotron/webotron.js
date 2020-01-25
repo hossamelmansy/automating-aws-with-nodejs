@@ -18,6 +18,8 @@ const AWS = require("aws-sdk/global");
 const program = require("commander");
 
 const BucketManager = require("./bucketManager");
+const DomainManager = require("./domainManager");
+const { getRegionEndpoint } = require("./utils");
 
 program
   .version("0.0.1")
@@ -33,6 +35,7 @@ AWS.config.credentials = new AWS.SharedIniFileCredentials({
 AWS.config.update({ region: program.region }); // update aws-sdk region
 
 const bucketManager = new BucketManager(); // BucketManager
+const domainManager = new DomainManager(); // DomainManager
 
 // list-buckets
 program
@@ -95,6 +98,27 @@ program
     const websiteURL = await bucketManager.getWebsiteURL();
 
     console.log(`\nWebsite URL: ${websiteURL}`);
+  });
+
+// setup-domain
+program
+  .command("setup-domain <domain>")
+  .description("Create and configure a DOMAIN to S3 bucket website.")
+  .action(async function(domain) {
+    // Get hosted zone
+    let hostedZone =
+      (await domainManager.findHostedZone(domain)) ||
+      (await domainManager.createHostedZone(domain));
+
+    // set bucket
+    bucketManager.setBucket(domain);
+    // get region endpoint details
+    const s3RegionEndpoint = getRegionEndpoint(await bucketManager.getRegion());
+
+    // create hosted zone if not exist
+    await domainManager.createS3RecordSet(hostedZone, domain, s3RegionEndpoint);
+
+    console.log(`http://${domain}`);
   });
 
 // parse arguments
