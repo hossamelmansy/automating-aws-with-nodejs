@@ -19,6 +19,8 @@ const program = require("commander");
 
 const BucketManager = require("./bucketManager");
 const DomainManager = require("./domainManager");
+const CertificateManager = require("./certificateManager");
+const DistributionManager = require("./distributionManager");
 const { getRegionEndpoint } = require("./utils");
 
 program
@@ -36,6 +38,8 @@ AWS.config.update({ region: program.region }); // update aws-sdk region
 
 const bucketManager = new BucketManager(); // BucketManager
 const domainManager = new DomainManager(); // DomainManager
+const certificateManager = new CertificateManager(); // CertificateManager
+const distributionManager = new DistributionManager(); // DistributionManager
 
 // list-buckets
 program
@@ -119,6 +123,56 @@ program
     await domainManager.createS3RecordSet(hostedZone, domain, s3RegionEndpoint);
 
     console.log(`http://${domain}`);
+  });
+
+// find-cert
+program
+  .command("find-cert <domain>")
+  .description("Find a certificate for domain.")
+  .action(async function(domain) {
+    console.log(await certificateManager.findCertificate(domain));
+  });
+
+// setup-cdn
+program
+  .command("setup-cdn <domain> <bucket>")
+  .description("Set up CloudFront CDN for domain pointing to bucket.")
+  .action(async function(domain, bucket) {
+    // find dist
+    let dist = await distributionManager.findDistribution(domain);
+
+    // if not dist, create one
+    if (!dist) {
+      // get certificateArn to set to the distribution
+      const certificate = await certificateManager.findCertificate(domain);
+
+      if (!certificate) {
+        console.log("Error: no certificate found.");
+        return;
+      }
+
+      // create the distribution
+      dist = await distributionManager.createDistribution(
+        domain,
+        certificate.CertificateArn,
+      );
+      // wait until it's finished
+      console.log("Waiting for distribution deployment...");
+      await distributionManager.waitForDeploy(dist.Id);
+    }
+
+    // create cloudfront domain record in route53
+    // Get hosted zone
+    let hostedZone =
+      (await domainManager.findHostedZone(domain)) ||
+      (await domainManager.createHostedZone(domain));
+
+    await domainManager.createCloudFrontRecordSet(
+      hostedZone,
+      domain,
+      dist.DomainName,
+    );
+    console.log(`Domain configured: https://${domain}`);
   });
 
 // parse arguments

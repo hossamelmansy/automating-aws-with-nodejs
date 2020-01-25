@@ -85,6 +85,40 @@ class DomainManager {
 
     return domain;
   }
+
+  /**
+   * Create record set that redirects domain to an CloudFront distribution.
+   * @function createCloudFrontRecordSet
+   * @param {object} hostedZone - The hosted zone object.
+   * @param {string} domain - The name of the domain.
+   * @param {string} distributionDomainName - CloudFront distribution domain name.
+   * @returns {string} The domain name.
+   */
+  async createCloudFrontRecordSet(hostedZone, domain, distributionDomainName) {
+    await this.route53
+      .changeResourceRecordSets({
+        HostedZoneId: hostedZone.Id,
+        ChangeBatch: {
+          Changes: [
+            {
+              Action: "UPSERT",
+              ResourceRecordSet: {
+                Name: domain,
+                Type: "A",
+                AliasTarget: {
+                  DNSName: distributionDomainName,
+                  HostedZoneId: "Z2FDTNDATAQYW2",
+                  EvaluateTargetHealth: false,
+                },
+              },
+            },
+          ],
+        },
+      })
+      .promise();
+
+    return domain;
+  }
 }
 
 module.exports = DomainManager;
