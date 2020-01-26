@@ -15,3 +15,9 @@ Webotron is a script that will sync a local directory to an s3 bucket, and optio
 - Set AWS profile with `--profile <profileName>`
 - Configure Route53 domain
 - Setup CloudFront CDN and SSL
+
+## 02-notifon
+
+Notifon is a project to notify Slack users of changes to your AWS account using CloudWatch Events
+
+### Features
