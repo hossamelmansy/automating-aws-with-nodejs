@@ -63,8 +63,15 @@ class BucketManager {
    * Initialize and create the bucket if it doesn't exist.
    * @function init()
    */
-  async init() {
-    await this.s3.createBucket({ Bucket: this.bucket }).promise();
+  async init(region = "us-east-1") {
+    const params = { Bucket: this.bucket };
+    if (region != "us-east-1") {
+      params.CreateBucketConfiguration = {
+        LocationConstraint: region,
+      };
+    }
+
+    await this.s3.createBucket(params).promise();
   }
 
   /**

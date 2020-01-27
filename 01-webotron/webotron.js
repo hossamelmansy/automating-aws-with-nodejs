@@ -69,7 +69,7 @@ program
   .action(async function(bucket) {
     bucketManager.setBucket(bucket); // set bucket
 
-    await bucketManager.init(); // create new S3 bucket
+    await bucketManager.init(program.region); // create new S3 bucket
     await bucketManager.disableBlockPublicAccess(); // disable S3 bucket Block Public Access
     // update S3 bucket policy
     await bucketManager.updatePolicy(`{
