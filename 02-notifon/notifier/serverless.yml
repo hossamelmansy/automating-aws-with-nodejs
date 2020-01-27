@@ -60,6 +60,17 @@ provider:
 #    - exclude-me.js
 #    - exclude-me-dir/**
 
+package:
+  excludeDevDependencies: false
+
+plugins:
+  - serverless-plugin-include-dependencies
+
+custom:
+  includeDependencies:
+    always:
+      - "node_modules/axios/**"
+
 functions:
   postToSlack:
     handler: handler.postToSlack

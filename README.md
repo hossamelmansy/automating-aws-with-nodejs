@@ -21,3 +21,5 @@ Webotron is a script that will sync a local directory to an s3 bucket, and optio
 Notifon is a project to notify Slack users of changes to your AWS account using CloudWatch Events
 
 ### Features
+
+- Send notifications to Slack when CloudWatch events happen

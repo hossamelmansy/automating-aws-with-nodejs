@@ -1,10 +1,10 @@
 "use strict";
 
+const axios = require("axios").default;
+
 module.exports.postToSlack = async (event, context) => {
-  console.log(process.env.SLACK_WEBHOOK_URL);
-  console.log(event);
-
-  // TODO: add axios, then send POST request to Slack channel
-
+  await axios.post(process.env.SLACK_WEBHOOK_URL, {
+    text: `From ${event.source} at ${event.detail.StartTime}: ${event.detail.Description}`,
+  });
   return;
 };

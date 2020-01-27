@@ -1,0 +1,11 @@
+{
+  "name": "notifon-notifier",
+  "description": "",
+  "version": "0.1.0",
+  "dependencies": {
+    "axios": "^0.19.2"
+  },
+  "devDependencies": {
+    "serverless-plugin-include-dependencies": "^4.0.1"
+  }
+}
