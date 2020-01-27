@@ -1,9 +1,10 @@
 "use strict";
 
-module.exports.hello = async event => {
+module.exports.postToSlack = async (event, context) => {
+  console.log(process.env.SLACK_WEBHOOK_URL);
   console.log(event);
-  return {
-    message: "Go Serverless v1.0! Your function executed successfully!",
-    event,
-  };
+
+  // TODO: add axios, then send POST request to Slack channel
+
+  return;
 };

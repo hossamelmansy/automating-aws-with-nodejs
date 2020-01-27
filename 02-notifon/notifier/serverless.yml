@@ -23,9 +23,9 @@ service: notifon-notifier
 provider:
   name: aws
   runtime: nodejs12.x
-  profile: javascriptAutomation
   stage: dev
-  region: us-east-1
+  profile: ${file(../config.${self:provider.stage}.json):awsProfile}
+  region: ${file(../config.${self:provider.stage}.json):region}
 
 # you can overwrite defaults here
 #  stage: dev
@@ -61,8 +61,8 @@ provider:
 #    - exclude-me-dir/**
 
 functions:
-  hello:
-    handler: handler.hello
+  postToSlack:
+    handler: handler.postToSlack
     events:
       - cloudwatchEvent:
           event:
@@ -73,6 +73,8 @@ functions:
             detail:
               AutoScalingGroupName:
                 - "Notifon Scaling Group"
+    environment:
+      SLACK_WEBHOOK_URL: ${file(../config.${self:provider.stage}.json):slackWebhookURL}
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
