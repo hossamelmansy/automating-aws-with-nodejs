@@ -1,0 +1,5 @@
+{
+  "awsProfile": "",
+  "videosBucket": "",
+  "videosDynamoDBTable": ""
+}

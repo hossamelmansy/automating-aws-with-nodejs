@@ -1,0 +1,18 @@
+service: videolyzer
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  profile: ${file(../config.${self:provider.stage}.json):awsProfile}
+  stage: dev
+
+functions:
+  startProcessingVideo:
+    handler: handler.startProcessingVideo
+    events:
+      - s3:
+          bucket: ${file(../config.${self:provider.stage}.json):videosBucket}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .mp4
+          existing: true
