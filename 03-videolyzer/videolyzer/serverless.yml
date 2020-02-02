@@ -1,18 +1,186 @@
 service: videolyzer
 
+custom:
+  awsProfile: ${file(../config.${self:provider.stage}.json):awsProfile}
+  awsRegion: ${file(../config.${self:provider.stage}.json):awsRegion}
+  videosBucket: ${file(../config.${self:provider.stage}.json):videosBucket}
+  videosDynamoDBTable: ${file(../config.${self:provider.stage}.json):videosDynamoDBTable}
+
 provider:
   name: aws
   runtime: nodejs12.x
-  profile: ${file(../config.${self:provider.stage}.json):awsProfile}
+  profile: ${self:custom.awsProfile}
+  region: ${self:custom.awsRegion}
   stage: dev
 
 functions:
-  startProcessingVideo:
+  StartProcessingVideo: # StartProcessingVideo Lambda function
     handler: handler.startProcessingVideo
+    role: StartProcessingVideoLambdaRole
+    environment:
+      VIDEO_PROCESSED_SNSTOPIC_ARN:
+        Ref: VideoProcessedSNSTopic
+      REKOGNITION_PUBLISH_SNSTOPIC_ROLE_ARN:
+        Fn::GetAtt: [RekognitionPublishSNSTopicRole, Arn]
     events:
       - s3:
-          bucket: ${file(../config.${self:provider.stage}.json):videosBucket}
+          bucket: ${self:custom.videosBucket}
           event: s3:ObjectCreated:*
           rules:
             - suffix: .mp4
           existing: true
+  HandleProcessedVideo: # HandleProcessedVideo Lambda function
+    handler: handler.handleProcessedVideo
+    role: HandleProcessedVideoLambdaRole
+    environment:
+      VIDEOS_DYNAMODB_TABLE: ${self:custom.videosDynamoDBTable}
+    events:
+      - sns:
+          arn:
+            Ref: VideoProcessedSNSTopic
+          topicName: "VideoProcessedSNSTopic"
+resources:
+  Resources:
+    # DynamoDB Table
+    VideosDynamoDBTable: # VideosDynamoDBTable to store extracted data
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.videosDynamoDBTable}
+        KeySchema:
+          - AttributeName: "videoName"
+            KeyType: "HASH"
+        AttributeDefinitions:
+          - AttributeName: "videoName"
+            AttributeType: "S"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    # SNS Topic
+    VideoProcessedSNSTopic: # SNS Topic to be triggered by Rekognition when video finished processing
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: "VideoProcessedSNSTopic"
+    # IAM Roles
+    HandleProcessedVideoLambdaRole: # IAM Role assigned to HandleProcessedVideo Lambda function
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          - PolicyName: "CloudWatchLogsPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "logs:CreateLogGroup"
+                    - "logs:CreateLogStream"
+                    - "logs:PutLogEvents"
+                  Resource:
+                    - Fn::Join:
+                        - ":"
+                        - - "arn:aws:logs"
+                          - Ref: "AWS::Region"
+                          - Ref: "AWS::AccountId"
+                          - "log-group:/aws/lambda/*:*:*"
+          - PolicyName: "RekognitionFullAccessPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "rekognition:*"
+                  Resource: "*"
+          - PolicyName: "DynamoDBPutItemPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "dynamodb:PutItem"
+                  Resource:
+                    Fn::GetAtt: [VideosDynamoDBTable, Arn]
+    RekognitionPublishSNSTopicRole: # IAM Role assigned to Rekognition to be able to publish SNS Topic
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - rekognition.amazonaws.com
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          - PolicyName: "SNSPublishPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "sns:Publish"
+                  Resource:
+                    Ref: VideoProcessedSNSTopic
+    StartProcessingVideoLambdaRole: # IAM Role assigned to StartProcessingVideo Lambda function
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          - PolicyName: "CloudWatchLogsPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "logs:CreateLogGroup"
+                    - "logs:CreateLogStream"
+                    - "logs:PutLogEvents"
+                  Resource:
+                    - Fn::Join:
+                        - ":"
+                        - - "arn:aws:logs"
+                          - Ref: "AWS::Region"
+                          - Ref: "AWS::AccountId"
+                          - "log-group:/aws/lambda/*:*:*"
+          - PolicyName: "S3GetObjectPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "s3:GetObject"
+                  Resource:
+                    - Fn::Join:
+                        - ""
+                        - - "arn:aws:s3:::"
+                          - ${self:custom.videosBucket}
+                          - "/*"
+          - PolicyName: "RekognitionFullAccessPolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "rekognition:*"
+                  Resource: "*"
+          - PolicyName: "IAMPassRolePolicy"
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "iam:GetRole"
+                    - "iam:PassRole"
+                  Resource:
+                    Fn::GetAtt: [RekognitionPublishSNSTopicRole, Arn]

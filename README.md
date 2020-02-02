@@ -23,3 +23,7 @@ Notifon is a project to notify Slack users of changes to your AWS account using 
 ### Features
 
 - Send notifications to Slack when CloudWatch events happen
+
+## 03-videolyzer
+
+Videolyzer is a project that doing image recognition and extract data from videos using AWS Rekognition on videos uploaded to an S3 bucket, and save the results in a DynamoDB table.
