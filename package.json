@@ -7,7 +7,7 @@
   "author": "Hossam ELMansy <hossamelmansy.developer@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "aws-sdk": "^2.608.0",
+    "aws-sdk": "^2.814.0",
     "commander": "^4.1.0",
     "mime": "^2.4.4",
     "uuid": "^3.4.0"
